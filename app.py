@@ -1,8 +1,9 @@
 """
-The provided Python script showcases an advanced application of the LangChain library to create a multifaceted 
-agent capable of conducting web searches, scraping content from websites, summarizing large texts, and even 
-generating Twitter threads based on the gathered information. This agent is then exposed as a web service 
-using FastAPI, allowing users to interact with it through HTTP requests. 
+This script demonstrates a sophisticated use of the LangChain library to build an agent capable of 
+conducting web searches, scraping and summarizing content, and generating Twitter threads based on 
+processed information. The agent adheres to a set of research standards, ensuring the information 
+provided is factual and well-documented. By exposing the agent as a web service through FastAPI, the 
+script makes these capabilities accessible over the web, allowing for a wide range of applications, from automated research to content creation for social media.
 """
 
 import os  # Used for accessing environment variables stored in the system or .env file.
@@ -19,7 +20,7 @@ from langchain.chains.summarize import load_summarize_chain  # Loads a predefine
 from langchain.tools import BaseTool  # Base class for creating custom tools within the LangChain framework.
 from pydantic import BaseModel, Field  # For creating data models with type validation.
 from typing import Type  # Used for type hints, especially when specifying the type of a model or class.
-from bs4 import BeautifulSoup  # For parsing HTML content and extracting information from it.
+from newspaper3k import Article # For parsing HTML content and extracting information from it.
 import requests  # For making HTTP requests to APIs or web pages.
 import json  # For encoding and decoding JSON data, especially when interacting with APIs.
 from langchain.schema import SystemMessage  # For defining system messages that guide the agent's behavior.
@@ -29,7 +30,6 @@ from fastapi import FastAPI  # Web framework for creating APIs, making the agent
 
 # Load environment variables for API keys
 load_dotenv()
-brwoserless_api_key = os.getenv("BROWSERLESS_API_KEY")
 serper_api_key = os.getenv("SERP_API_KEY")
 
 """
@@ -62,30 +62,22 @@ def search(query):
 # Define a function to scrape a website using the Browserless API
 # This tool scrapes the content of a website and summarizes it if too large
 def scrape_website(objective: str, url: str):
-    print("Scraping website...")
-    headers = {
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'application/json',
-    }
-    data = {"url": url}
-    data_json = json.dumps(data)
-    post_url = f"https://chrome.browserless.io/content?token={brwoserless_api_key}"
-    response = requests.post(post_url, headers=headers, data=data_json)
+    print("Scraping website using Newspaper3k...")
+    # Create an Article object
+    article = Article(url)
     
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.content, "html.parser")
-        for script in soup(["script", "style"]):
-            script.decompose()  # Remove script and style elements to clean the text
-        text = soup.get_text()
-        print("CONTENTTTTTT:", text)
+    # Download and parse the article
+    article.download()
+    article.parse()
+    
+    text = article.text
+    print("CONTENTTTTTT:", text)
 
-        if len(text) > 10000:
-            output = summary(objective, text)  # Summarize if text is too long
-            return output
-        else:
-            return text
+    if len(text) > 10000:
+        output = summary(objective, text)  # Summarize if text is too long
+        return output
     else:
-        print(f"HTTP request failed with status code {response.status_code}")
+        return text
 
 """
 Summarization Function

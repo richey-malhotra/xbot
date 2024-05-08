@@ -11,7 +11,7 @@ def tweeter():
     # Assuming you've added your access token and secret to the .env file
     access_token = os.environ.get("ACCESS_TOKEN")
     access_token_secret = os.environ.get("ACCESS_TOKEN_SECRET")
-    bearer_token = os.environ.get("bearer_token")
+    bearer_token = os.environ.get("BEARER_TOKEN")
     import tweepy
 
     client = tweepy.Client(bearer_token=bearer_token,
