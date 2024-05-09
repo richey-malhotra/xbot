@@ -27,6 +27,7 @@ from langchain.schema import SystemMessage  # For defining system messages that 
 from twit import tweeter  # Custom module assumed to be for interacting with Twitter's API.
 from fastapi import FastAPI, HTTPException  # Web framework for creating APIs, making the agent accessible over HTTP, and handling HTTP exceptions.
 
+import streamlit as st
 
 # Load environment variables for API keys
 load_dotenv()
@@ -103,7 +104,7 @@ def scrape_website(objective: str, url: str) -> str:
         article.parse()
 
         text = article.text
-        print("CONTENTTTTTT:", text)
+        print("CONTENT:", text)
 
         if len(text) > 10000:
             output = summary(objective, text)  # Summarize if text is too long
@@ -256,7 +257,7 @@ system_message = SystemMessage(
             Please make sure you complete the objective above with the following rules:
             1/ You should do enough research to gather as much information as possible about the objective
             2/ If there are url of relevant links & articles, you will scrape it to gather more information
-            3/ After scraping & search, you should think "is there any new things i should search & scraping based on the data I collected to increase research quality?" If answer is yes, continue; But don't do this more than 3 iteratins
+            3/ After scraping & search, you should think "is there any new things i should search & scraping based on the data I collected to increase research quality?" If answer is yes, continue; But don't do this more than 5 iterations
             4/ You should not make things up, you should only write facts & data that you have gathered
             5/ In the final output, You should include all reference data & links to back up your research; You should include all reference data & links to back up your research
             6/ Always look at the web first
@@ -409,41 +410,89 @@ def tweetertweet(thread):
     except Exception as e:
         return f"Error posting tweets: {e}"
 
+def main():
+    
+    # Set page title and icon
+    st.set_page_config(page_title="AI research agent", page_icon=":bird:")
 
-# Define the FastAPI app for creating an API endpoint
-app = FastAPI()
+    # Display header 
+    st.header("AI research agent :bird:")
+    
+    # Get user's research goal input
+    query = st.text_input("Research goal")
+
+    # Initialize result and thread state if needed
+    if not hasattr(st.session_state, 'result'):
+        st.session_state.result = None
+
+    if not hasattr(st.session_state, 'thread'):
+        st.session_state.thread = None
+
+    # Do research if query entered and no prior result
+    if query and (st.session_state.result is None or st.session_state.thread is None):
+        st.write("Doing research for ", query)
+
+        # Run agent to generate result
+        st.session_state.result = agent({"input": query})
+        
+        # Generate thread from result
+        st.session_state.thread = llm_chain.predict(topic=query, info=st.session_state.result['output'])
+
+    # Display generated thread and result if available
+    if st.session_state.result and st.session_state.thread:
+        st.markdown(st.session_state.thread)
+        
+        # Allow tweeting thread
+        tweet = st.button("Tweeeeeet")
+        
+        # Display info on result 
+        st.markdown("Twitter thread Generated from the below research")
+        st.markdown(st.session_state.result['output'])
+    
+        if tweet:
+            # Tweet thread
+            tweetertweet(st.session_state.thread)
+            
+ 
+if __name__ == '__main__':
+    main()
+
+# # Define the FastAPI app for creating an API endpoint
+# app = FastAPI()
 
 
-# FastAPI Web Service
-# The script utilizes FastAPI to expose the LangChain agent as a web service. This allows users to send 
-# queries to the agent via HTTP requests, making the agent's functionalities accessible over the web. 
-# The endpoint receives a query, processes it through the agent, and returns the generated Twitter 
-# thread based on the query's content.
+# # FastAPI Web Service
+# # The script utilizes FastAPI to expose the LangChain agent as a web service. This allows users to send 
+# # queries to the agent via HTTP requests, making the agent's functionalities accessible over the web. 
+# # The endpoint receives a query, processes it through the agent, and returns the generated Twitter 
+# # thread based on the query's content.
 
-# Pydantic model for the API query input
-class Query(BaseModel):
-    query: str
+# # Pydantic model for the API query input
+# class Query(BaseModel):
+#     query: str
 
 
-# API endpoint to process queries through the agent and generate Twitter threads
-@app.post("/")
-def researchAgent(query: Query):
-    """
-    Processes the provided query through the LangChain agent and generates a Twitter thread based on the query's content.
+# # API endpoint to process queries through the agent and generate Twitter threads
+# @app.post("/")
+# def researchAgent(query: Query):
+#     """
+#     Processes the provided query through the LangChain agent and generates a Twitter thread based on the query's content.
 
-    Args:
-        query (Query): The query object containing the user's input.
+#     Args:
+#         query (Query): The query object containing the user's input.
 
-    Returns:
-        dict: A dictionary containing the generated Twitter thread.
+#     Returns:
+#         dict: A dictionary containing the generated Twitter thread.
 
-    Raises:
-        HTTPException: If there's an error while processing the query or generating the Twitter thread.
-    """
+#     Raises:
+#         HTTPException: If there's an error while processing the query or generating the Twitter thread.
+#     """
 
-    query = query.query
-    content = agent({"input": query})
-    actual_content = content["output"]
-    thread = llm_chain.predict(info=actual_content, topic=query)
-    ret = tweetertweet(thread)
-    return ret
+#     query = query.query
+#     content = agent({"input": query})
+#     actual_content = content["output"]
+#     thread = llm_chain.predict(info=actual_content, topic=query)
+#     ret = tweetertweet(thread)
+#     return ret
+
+
